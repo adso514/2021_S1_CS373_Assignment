@@ -72,9 +72,94 @@ def writeGreyscalePixelArraytoPNG(output_filename, pixel_array, image_width, ima
     file = open(output_filename, 'wb')  # binary mode is important
     writer = imageIO.png.Writer(image_width, image_height, greyscale=True)
     writer.write(file, pixel_array)
-    file.close()
+    file.close() 
+    
+def computeRGBToGreyscale(pixel_array_r, pixel_array_g, pixel_array_b, image_width, image_height):
+    greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    
+    for i in range(image_height):
+        
+        for j in range(image_width):
+            
+            grey = 0.299 * pixel_array_r[i][j] + 0.587 * pixel_array_g[i][j] + 0.114 * pixel_array_b[i][j]
+            
+            greyscale_pixel_array[i][j] = round(grey)
+    return greyscale_pixel_array 
 
+def computeVerticalEdgesSobelAbsolute(pixel_array, image_width, image_height):
+    greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    filter_kernels = {
+        (-1, 1): -0.125, (0, 1): 0, (1, 1): 0.125,
+        (-1, 0): -0.25, (0, 0): 0, (1, 0): 0.25,
+        (-1, -1): -0.125, (0, -1): 0, (1, -1): 0.125
+    }
+    
+    for i in range(1, image_height - 1):
+        for j in range(1, image_width - 1):
+            pixel = 0
+            for x, y in filter_kernels:
+                pixel += pixel_array[i + y][j + x] * filter_kernels[(x, y)]
+                greyscale_pixel_array[i][j] = abs(pixel)
+    return greyscale_pixel_array 
 
+def computeHorizontalEdgesSobelAbsolute(pixel_array, image_width, image_height):
+    greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    filter_kernels = {
+        (-1, 1): 0.125, (0, 1): 0.25, (1, 1): 0.125,
+        (-1, 0): 0, (0, 0): 0, (1, 0): 0,
+        (-1, -1): -0.125, (0, -1): -0.25, (1, -1): -0.125
+    }
+    
+    for i in range(1, image_height - 1):
+        for j in range(1, image_width - 1):
+            pixel = 0
+            for x, y in filter_kernels:
+                pixel += pixel_array[i + y][j + x] * filter_kernels[(x, y)]
+                greyscale_pixel_array[i][j] = abs(pixel)
+    return greyscale_pixel_array
+
+def computeEdgeMagnitude(horizontal_edges, vertical_edges, image_width, image_height):
+    magnitude_edges = []
+
+    for height in range(image_height):
+        row = []
+        for width in range(image_width):
+            magnitude_gradient = ((vertical_edges[height][width]**2) + (horizontal_edges[height][width])**2) ** 0.5
+            row.append(magnitude_gradient)
+        magnitude_edges.append(row)
+
+    return magnitude_edges 
+
+def computeBoxAveraging3x3(pixel_array, image_width, image_height):
+    greyscale_edges = []
+    
+    for x in range(image_height):
+        row = []
+        for y in range(image_width):
+            sum = 0
+            if x == 0 or y == 0 or x == image_height - 1 or y == image_width - 1:
+                row.append(0) 
+            else: 
+                a = (pixel_array[y - 1][x - 1]) + (pixel_array[y - 1][x]) + (pixel_array[y - 1][x + 1])
+                b = (pixel_array[y][x - 1]) + (pixel_array[y][x]) + (pixel_array[y][x + 1])
+                c = (pixel_array[y + 1][x - 1]) + (pixel_array[y + 1][x]) + (pixel_array[y + 1][x + 1])
+                row.append((a + b + c) / 9)
+        greyscale_edges.append(row)
+    return greyscale_edges
+             
+
+def computeThresholdGE(pixel_array, threshold_value, image_width, image_height):
+    threshold_array = []
+    
+    for i in range(image_height): 
+        row = []
+        for j in range(image_width):
+            if pixel_array[i][j] >= threshold_value:
+                row.append(255)
+            else:
+                row.append(0) 
+        threshold_array.append(row)
+    return threshold_array
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
