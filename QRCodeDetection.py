@@ -159,7 +159,51 @@ def computeThresholdGE(pixel_array, threshold_value, image_width, image_height):
             else:
                 row.append(0) 
         threshold_array.append(row)
-    return threshold_array
+    return threshold_array 
+
+def computeDilation8Nbh3x3FlatSE(pixel_array, image_width, image_height):
+    dilation = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(image_width-1):
+        for j in range(image_height-1):
+            dilation[i][j] = 0
+            
+    for i in range(image_height):
+        for j in range(image_width):
+            if pixel_array[i][j] == pixel_array[0][j] and pixel_array[i][j] != 0:
+                for x in range(0, 2):
+                    for y in range(0, 2):
+                        dilation[i + x][j + y] = 1
+                        
+            elif pixel_array[i][j] != 0:
+                for x in range(-1, 2):
+                    for y in range(-1, 2):
+                        dilation[i + x][j + y] = 1
+                
+    
+    return dilation 
+
+def computeErosion8Nbh3x3FlatSE(pixel_array, image_width, image_height):
+    erosion = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(image_width-1):
+        for j in range(image_height-1):
+            erosion[i][j] = 0
+    
+
+    for i in range(1, image_height-1):
+        for j in range(1, image_width-1):
+            threeXthree_ones = True
+            
+            for x in range(-1, 2):
+                for y in range(-1, 2):
+                    if pixel_array[i + x][j + y] == 0:
+                        threeXthree_ones = False
+                        
+            if threeXthree_ones:
+                erosion[i][j] = 1 
+            else:
+                erosion[i][j] = 0
+    
+    return erosion
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
