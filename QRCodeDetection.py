@@ -86,6 +86,33 @@ def computeRGBToGreyscale(pixel_array_r, pixel_array_g, pixel_array_b, image_wid
             greyscale_pixel_array[i][j] = round(grey)
     return greyscale_pixel_array 
 
+def scaleTo0And255AndQuantize(pixel_array, image_width, image_height):
+    
+    scale_array = createInitializedGreyscalePixelArray(image_width, image_height)
+   t_value = computeMinAndMaxValues(pixel_array, image_width, image_height)
+    
+    if (t_value[0] == t_value[1]):
+        return scale_array
+    
+    for i in range(image_height):
+        for j in range(image_width):
+            pixel = pixel_array[i][j]
+            scale_array[i][j] = round((pixel - t_value[0]) * ((255 - 0) / (t_value[1] - t_value[0])) + 0)
+    return scale_array 
+
+def stretchContrast(pixel_array, image_width, image_height):
+    min_value = 255
+    max_value = 0
+
+    for y in range(image_height):
+        for x in range(image_width):
+            if pixel_array[y][x] < min_value:
+                min_value = pixel_array[y][x]
+            if pixel_array[y][x] > max_value:
+                max_value = pixel_array[y][x]
+
+    return(min_value, max_value)
+
 def computeVerticalEdgesSobelAbsolute(pixel_array, image_width, image_height):
     greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
     filter_kernels = {
@@ -118,7 +145,7 @@ def computeHorizontalEdgesSobelAbsolute(pixel_array, image_width, image_height):
                 greyscale_pixel_array[i][j] = abs(pixel)
     return greyscale_pixel_array
 
-def computeEdgeMagnitude(horizontal_edges, vertical_edges, image_width, image_height):
+def edgeMagnitude(horizontal_edges, vertical_edges, image_width, image_height):
     magnitude_edges = []
 
     for height in range(image_height):
@@ -203,7 +230,145 @@ def computeErosion8Nbh3x3FlatSE(pixel_array, image_width, image_height):
             else:
                 erosion[i][j] = 0
     
-    return erosion
+    return erosion 
+class Queue:
+    def __init__(self):
+        self.items = []
+    def isEmpty(self):
+        return self.items == []
+    def enqueue(self, item):
+        self.items.insert(0,item)
+    def dequeue(self):
+        return self.items.pop()
+    def size(self):
+        return len(self.items)   
+    
+def computeConnectedComponentLabeling(pixel_array, image_width, image_height):
+    connectedcomponent = createInitializedGreyscalePixelArray(image_width, image_height)
+    visited = set()
+    componentSizes= {}
+    componentLabel = 1
+    
+    for i in range(image_height):
+        for j in range(image_width):
+            if (pixel_array[i][j] != 0) and ((i, j) not in visited):
+                
+                q = Queue()
+                q.enqueue((i, j))
+                visited.add((i,j))
+                count = 0
+                
+                while q.size() != 0:
+                    x, y = q.dequeue()
+                    connectedcomponent[x][y] = componentLabel
+                    
+                   
+                    if (x + 1 < image_height) and ((x + 1, y) not in visited) and (pixel_array[x + 1][y] != 0):
+                        q.enqueue((x + 1, y))
+                        visited.add((x + 1, y)) 
+                        
+                    if (0 <= x - 1) and ((x - 1, y) not in visited) and (pixel_array[x - 1][y] != 0):
+                        q.enqueue((x - 1, y))
+                        visited.add((x - 1, y))
+
+                    if (0 <= y - 1) and ((x, y - 1) not in visited) and (pixel_array[x][y - 1] != 0):
+                        q.enqueue((x, y - 1))
+                        visited.add((x, y - 1)) 
+                        
+                    if (y + 1 < image_width) and ((x, y + 1) not in visited) and (pixel_array[x][y + 1] != 0):
+                         q.enqueue((x, y + 1))
+                         visited.add((x, y + 1))
+
+                componentLabel += 1
+
+    for i in range(1, componentLabel):
+        for j in connectedcomponent:
+            count += j.count(i)
+        componentSizes[i] = count
+        count = 0
+
+    return connectedcomponent, componentSizes
+    
+def FindLargestConnectedComponent(c_image, c_sizes, image_width, image_height):
+    largeconnectedComponent = createInitializedGreyscalePixelArray(image_width, image_height)
+
+    large_component = 0
+    sizes_component = 0
+    for i in c_sizes.keys():
+        if c_sizes[i] > sizes_component:
+            sizes_component = c_sizes[i]
+            large_component = i
+
+    box_min_x = image_width
+    box_min_y = image_height
+    box_max_x = 0
+    box_max_y = 0
+    for i in range(image_height):
+        for j in range(image_width):
+            if c_image[i][j] == large_component:
+                largeconnectedComponent[i][j] = 255 
+                
+                if i < box_min_y:
+                    box_min_y = i
+                
+                if j < box_min_x:
+                    box_min_x = j
+  
+                if i > box_max_y:
+                    box_max_y = i
+
+                if j > box_max_x:
+                    box_max_x = j
+
+                
+            else:
+                largeconnectedComponent[i][j] = 0
+    
+    box_size = [box_min_x, box_min_y, box_max_x - box_min_x, box_max_y - box_min_y]
+
+    return largest_connected_component, box_size
+    
+def computeBiggestComponent(c_image, c_sizes, image_width, image_height):
+    big_array = createInitializedGreyscalePixelArray(image_width, image_height)
+
+    biggest_clabel = 0
+    max_value = 0
+
+    for i in c_sizes.keys():
+        if c_sizes[i] > max_value:
+            max_value = c_sizes[i]
+
+    for j in c_sizes.keys():
+        if max_value == c_sizes[j]:
+            biggest_clabel = j
+
+    for y in range(image_height):
+        for x in range(image_width):
+            if c_image[y][x] == biggest_clabel:
+                big_array[y][x] = 255
+
+    return big_array
+    
+def extractBoundingBox(pixel_array, image_width, image_height):
+    min_x = image_height
+    min_y = image_height
+    max_x = 0
+    max_y = 0
+    found_y = False
+
+    for y in range(image_height):
+        for x in range(image_width):
+            if pixel_array[y][x] > 0 and found_y == False:
+                min_y = y
+                found_y = True
+            if pixel_array[y][x] > 0 and x < min_x:
+                min_x = x
+            if pixel_array[y][x] > 0 and x > max_x:
+                max_x = x
+            if pixel_array[y][x] > 0 and y > max_y:
+                max_y = y
+
+    return min_x, min_y, max_x, max_y
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
@@ -214,10 +379,65 @@ def main():
 
     pyplot.imshow(prepareRGBImageForImshowFromIndividualArrays(px_array_r, px_array_g, px_array_b, image_width, image_height))
 
+
+    greyscale_array = computeRGBToGreyscale(px_array_r, px_array_g, px_array_b, image_width, image_height)
+    scale_array = scaleTo0And255AndQuantize(greyscale_array, image_width, image_height)
+
+    horizontal_array = computeHorizontalEdgesSobelAbsolute(greyscale_array, image_width, image_height)
+
+    vertical_array = computeVerticalEdgesSobelAbsolute(greysale_array, image_width, image_height)
+
+    edge_magnitude_array = edgeMagnitude(vertical_array, horizontal_array, image_width, image_height)
+
+    smooth_edges = edge
+    for i in range(2):
+        smooth_edges = computeBoxAveraging3x3(smooth_edges, image_width, image_height)
+    smooth_edges = scaleTo0And255AndQuantize(smooth_edges, image_width, image_height)
+
+    threshold_array = computeThresholdGE(smooth_edges, 70, image_width, image_height)
+
+    dilation_array = computeDilation8Nbh3x3FlatSE(threshold_array, image_width, image_height)
+    dilation_array = computeDilation8Nbh3x3FlatSE(dilation_array, image_width, image_height)
+    erosion_array = computeErosion8Nbh3x3FlatSE(dilation_array, image_width, image_height)
+    erosion_array = computeErosion8Nbh3x3FlatSE(erosion_array, image_width, image_height)
+    morphological = erosion_array
+
+
+    (c_image, c_sizes) = computeConnectedComponentLabeling(erosion_array, image_width, image_height)
+
+    biggest_component = computeBiggestComponent(c_image, c_sizes, image_width, image_height)
+
+    minX, minY, maxX, maxY = extractBoundingBox(biggest_component, image_width, image_height) 
+    
+    pyplot.imshow(prepareRGBImageForImshowFromIndividualArrays(px_array_r, px_array_g, px_array_b, image_width, image_height))
+
+    #Testing
+
+    #Step 1
+    #pyplot.imshow(px_array, cmap="gray")
+
+    #Step 2 - 4
+    #pyplot.imshow(edge, cmap="gray")
+
+    #Step 5
+    #pyplot.imshow(smooth_edges, cmap="gray")
+
+    #Step 6
+    #pyplot.imshow(threshold_array, cmap="gray")
+
+    #Step 7
+    #pyplot.imshow(morphological, cmap="gray")
+
+    #Step 8
+    #pyplot.imshow(biggest_component, cmap="gray")
+    
+
     # get access to the current pyplot figure
     axes = pyplot.gca()
     # create a 70x50 rectangle that starts at location 10,30, with a line width of 3
-    rect = Rectangle( (10, 30), 70, 50, linewidth=3, edgecolor='g', facecolor='none' )
+    #rect = Rectangle( (10, 30), 70, 50, linewidth=3, edgecolor='g', facecolor='none' )
+    rect = Rectangle( (minX, minY), maxX - minX, maxY - minY, linewidth=2, edgecolor='g', facecolor='none' )
+
     # paint the rectangle over the current plot
     axes.add_patch(rect)
 
