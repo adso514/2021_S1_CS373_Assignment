@@ -1,8 +1,13 @@
 
 from matplotlib import pyplot
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle 
+
+from pyzbar.pyzbar import decode
+from PIL import Image
 
 import imageIO.png
+import math
+
 
 
 def createInitializedGreyscalePixelArray(image_width, image_height, initValue = 0):
